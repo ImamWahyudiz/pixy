@@ -58,6 +58,7 @@ export async function enhanceImage(
     pipeline = pipeline.resize({
       width: newWidth,
       kernel: sharp.kernel.lanczos3,
+      fastShrinkOnLoad: false,
     });
   }
 
@@ -84,16 +85,16 @@ export async function enhanceImage(
       .toFile(outputFilePath);
   } else if (outputExt === '.png') {
     await pipeline
-      .png({ compressionLevel: 8 })
+      .png({ compressionLevel: 8, effort: 8 })
       .toFile(outputFilePath);
   } else if (outputExt === '.webp') {
     await pipeline
-      .webp({ quality })
+      .webp({ quality, effort: 6, smartSubsample: true })
       .toFile(outputFilePath);
   } else {
     // jpg / jpeg / jfif
     await pipeline
-      .jpeg({ quality, mozjpeg: true })
+      .jpeg({ quality, mozjpeg: true, chromaSubsampling: '4:4:4', trellisQuantisation: true })
       .toFile(outputFilePath);
   }
 

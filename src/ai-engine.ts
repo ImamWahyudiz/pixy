@@ -1,6 +1,7 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
+import os from 'os';
 import { execFile, execSync } from 'child_process';
 import sharp from 'sharp';
 
@@ -157,8 +158,22 @@ export async function enhanceWithAi(
 
   // --- Animated GIF Handling ---
   if (onProgress) onProgress('Mengekstrak frame-frame animasi GIF...');
-  const tempFramesIn = path.join(MODELS_DIR, `temp_in_${Date.now()}`);
-  const tempFramesOut = path.join(MODELS_DIR, `temp_out_${Date.now()}`);
+  const tempFramesIn = path.join(os.tmpdir(), `pixy_temp_in_${Date.now()}`);
+  const tempFramesOut = path.join(os.tmpdir(), `pixy_temp_out_${Date.now()}`);
+
+  const cleanupTempDirs = () => {
+    if (fs.existsSync(tempFramesIn)) fs.rmSync(tempFramesIn, { recursive: true, force: true });
+    if (fs.existsSync(tempFramesOut)) fs.rmSync(tempFramesOut, { recursive: true, force: true });
+  };
+
+  const exitHandler = () => {
+    cleanupTempDirs();
+    process.exit(1);
+  };
+  
+  process.on('SIGINT', exitHandler);
+  process.on('SIGTERM', exitHandler);
+
   await fsPromises.mkdir(tempFramesIn, { recursive: true });
   await fsPromises.mkdir(tempFramesOut, { recursive: true });
 
@@ -194,6 +209,10 @@ export async function enhanceWithAi(
     const newWidth = width * scale;
     const newPageHeight = pageHeight * scale;
     const totalHeight = newPageHeight * processedFrameFiles.length;
+
+    if (totalHeight > 32767) {
+      if (onProgress) onProgress(`Peringatan: Ukuran kanvas total sangat besar (${newWidth}x${totalHeight}). Berisiko memakan banyak RAM...`);
+    }
 
     for (let i = 0; i < processedFrameFiles.length; i++) {
       compositeInputs.push({
@@ -234,8 +253,9 @@ export async function enhanceWithAi(
 
     return outputFilePath;
   } finally {
+    process.off('SIGINT', exitHandler);
+    process.off('SIGTERM', exitHandler);
     // Clean up temporary frame directories
-    await fsPromises.rm(tempFramesIn, { recursive: true, force: true });
-    await fsPromises.rm(tempFramesOut, { recursive: true, force: true });
+    cleanupTempDirs();
   }
 }

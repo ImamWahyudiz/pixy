@@ -61,7 +61,7 @@ export async function convertImage(
       .toFile(outputFilePath);
   } else {
     await sharp(inputFilePath)
-      .webp({ quality: options.quality })
+      .webp({ quality: options.quality, effort: 6, smartSubsample: true })
       .toFile(outputFilePath);
   }
 
