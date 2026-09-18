@@ -80,14 +80,15 @@ export async function convertImage(
  */
 export async function processPath(
   inputPath: string,
-  options: ConverterOptions
+  options: ConverterOptions,
+  customOutputDir?: string
 ): Promise<{ success: string[], failed: { file: string, error: any }[] }> {
   
   const stats = await fs.stat(inputPath);
   const isDirectory = stats.isDirectory();
   
-  // Create output directory 'output' in the current working directory
-  const outputDir = path.join(process.cwd(), 'output');
+  // Create output directory 'output/compress' in the current working directory
+  const outputDir = customOutputDir || path.join(process.cwd(), 'output', 'compress');
   await fs.mkdir(outputDir, { recursive: true });
 
   const result = {

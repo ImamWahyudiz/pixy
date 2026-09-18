@@ -34,7 +34,7 @@ if (process.argv.slice(2).length === 0) {
       if (options.ai) {
         console.log(pc.cyan(`\n[AI] Processing with Real-ESRGAN Super-Resolution (${scale}x)...`));
         try {
-          const outputDir = path.join(process.cwd(), 'output');
+          const outputDir = path.join(process.cwd(), 'output', 'ai');
           const stats = await fs.promises.stat(inputPath);
           const files: string[] = [];
 
@@ -60,7 +60,7 @@ if (process.argv.slice(2).length === 0) {
             );
             console.log(pc.green(` ✓ Saved: ${out}`));
           }
-          console.log(pc.green(`\nAll done! Output saved in output/`));
+          console.log(pc.green(`\nAll done! Output saved in output/ai/`));
         } catch (err: any) {
           console.error(pc.red(`\nError: ${err.message}`));
           process.exit(1);

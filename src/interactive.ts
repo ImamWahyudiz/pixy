@@ -132,7 +132,7 @@ export async function runInteractiveMode(): Promise<void> {
         s.stop(`Selesai! Berhasil mengompres ${res.success.length} file.`);
 
         if (res.success.length > 0) {
-          p.log.success(pc.green(`File tersimpan di folder ${pc.bold('output/')}`));
+          p.log.success(pc.green(`File tersimpan di folder ${pc.bold('output/compress/')}`));
           res.success.slice(0, 5).forEach(f => p.log.info(` - ${path.basename(f)}`));
           if (res.success.length > 5) p.log.info(` ... dan ${res.success.length - 5} file lainnya`);
         }
@@ -210,7 +210,7 @@ export async function runInteractiveMode(): Promise<void> {
         s.stop(`Selesai! Berhasil meningkatkan kualitas ${res.success.length} file.`);
 
         if (res.success.length > 0) {
-          p.log.success(pc.green(`File tersimpan di folder ${pc.bold('output/')}`));
+          p.log.success(pc.green(`File tersimpan di folder ${pc.bold('output/enhance/')}`));
           res.success.slice(0, 5).forEach(f => p.log.info(` - ${path.basename(f)}`));
           if (res.success.length > 5) p.log.info(` ... dan ${res.success.length - 5} file lainnya`);
         }
@@ -252,7 +252,7 @@ export async function runInteractiveMode(): Promise<void> {
       s.start('Mempersiapkan AI Super-Resolution...');
 
       try {
-        const outputDir = path.join(process.cwd(), 'output');
+        const outputDir = path.join(process.cwd(), 'output', 'ai');
         const stats = await fs.promises.stat(inputPath);
         const filesToProcess: string[] = [];
 
@@ -283,7 +283,7 @@ export async function runInteractiveMode(): Promise<void> {
         }
 
         s.stop(`Selesai! Berhasil memproses ${success.length} file dengan AI.`);
-        p.log.success(pc.green(`File tersimpan di folder ${pc.bold('output/')}`));
+        p.log.success(pc.green(`File tersimpan di folder ${pc.bold('output/ai/')}`));
         success.forEach(f => p.log.info(` - ${path.basename(f)}`));
       } catch (err: any) {
         s.stop(pc.red('Gagal: ' + err.message));

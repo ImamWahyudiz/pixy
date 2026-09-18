@@ -107,12 +107,13 @@ export async function enhanceImage(
 export async function processEnhancePath(
   inputPath: string,
   options: EnhanceOptions,
-  onProgress?: (file: string, index: number, total: number) => void
+  onProgress?: (file: string, index: number, total: number) => void,
+  customOutputDir?: string
 ): Promise<{ success: string[]; failed: { file: string; error: any }[] }> {
   const stats = await fs.stat(inputPath);
   const isDirectory = stats.isDirectory();
 
-  const outputDir = path.join(process.cwd(), 'output');
+  const outputDir = customOutputDir || path.join(process.cwd(), 'output', 'enhance');
   await fs.mkdir(outputDir, { recursive: true });
 
   const result = {

@@ -197,13 +197,15 @@ export async function enhanceWithAi(
       '-o', path.resolve(tempFramesOut),
       '-n', model,
       '-s', scale.toString(),
+      '-g', '0'
     ]);
 
-    if (onProgress) onProgress('Menyusun kembali frame animasi GIF...');
     // Read all processed frames
     const processedFrameFiles = (await fsPromises.readdir(tempFramesOut))
       .filter(f => f.endsWith('.png'))
       .sort();
+
+    if (onProgress) onProgress('Menyusun kembali frame animasi GIF...');
 
     const compositeInputs = [];
     const newWidth = width * scale;
