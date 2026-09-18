@@ -1,8 +1,15 @@
 {
-  "name": "pixy",
+  "name": "@imamwahyudiz/pixy",
   "version": "1.0.0",
   "description": "Image compression and enhancement CLI",
   "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ImamWahyudiz/pixy.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "bin": {
     "pixy": "./dist/index.js",
     "webpc": "./dist/index.js"
