@@ -1,6 +1,11 @@
 # 🪄 Pixy - Modern Image Compression & Enhancement Tool
 
-CLI dan Interactive Tool untuk kompresi dan peningkatan kualitas gambar (WebP, GIF animasi, JPG, PNG) dengan mode Non-AI (Lanczos3 + Smart Sharpen) dan AI Super-Resolution (Real-ESRGAN Vulkan).
+> **Kenapa bikin tool ini?**  
+> Jujur, ribet banget setiap kali mau kompres aset gambar atau animasi GIF di website-website gratisan online: sering ada limit jumlah file sekali upload, ukuran file dibatasi, banyak iklan, lemot kalau filenya bejibun, dan harus upload aset kita ke server orang lain.  
+> 
+> Makanya tool ini dibuat awalnya buat kebutuhan diri sendiri—biar serba lokal di laptop/PC, super cepat, tanpa batasan apa pun, dan praktis tinggal ketik `pixy` atau drag-and-drop. Tapi kalau ada yang ngerasa kebantu dan mau pakai juga, **silakan bebas dipakai!** 🎉
+
+CLI dan Interactive Terminal Tool untuk kompresi dan peningkatan kualitas gambar (WebP, GIF animasi, JPG, PNG) dengan mode Non-AI (Lanczos3 + Smart Sharpen) dan AI Super-Resolution (Real-ESRGAN Vulkan).
 
 ---
 
