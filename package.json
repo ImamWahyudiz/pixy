@@ -16,8 +16,8 @@
     "dist"
   ],
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "imamWahyudiz",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "@clack/prompts": "^1.8.1",

@@ -84,3 +84,10 @@ npm run build
 # Build pixy.exe:
 npm run build:exe
 ```
+
+---
+
+## 📄 Lisensi
+
+Didistribusikan di bawah Lisensi **MIT**. Silakan cek file [`LICENSE`](LICENSE) untuk informasi lebih lengkap. Bebas digunakan untuk kebutuhan personal maupun komersial.
+
