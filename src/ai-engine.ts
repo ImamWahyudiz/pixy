@@ -225,6 +225,7 @@ export async function enhanceWithAi(
       }
     })
     .gif({
+      delay: meta.delay,
       colours: 256,
       effort: 7,
       dither: 1.0,
