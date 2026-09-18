@@ -9,21 +9,29 @@ CLI dan Interactive Terminal Tool untuk kompresi dan peningkatan kualitas gambar
 
 ---
 
-## 🚀 Cara Instalasi
+## 🚀 Cara Instalasi & Menjalankan
 
-### 1. Instalasi Global via NPM (Langsung Siap Pakai di Mana Saja)
-Buka terminal di folder proyek ini dan jalankan:
+### 1. Langsung Install via NPM (Resmi & Publik)
+Siapa saja dapat langsung menginstall Pixy secara global dengan satu perintah:
 ```bash
-npm run install:global
-# atau
-npm link --force
+npm install -g pixy-cli
 ```
-Setelah perintah di atas selesai, Anda dapat langsung mengetik perintah `pixy` di terminal (PowerShell, Command Prompt, atau Terminal lain) dari folder mana saja di komputer Anda!
+Setelah itu, perintah **`pixy`** langsung aktif dan bisa dipanggil di terminal mana saja!
+
+Atau jika tidak ingin menginstall secara permanen, cukup jalankan sekali pakai via `npx`:
+```bash
+npx pixy-cli
+```
 
 ### 2. Menggunakan File Binary Executable (`pixy.exe`)
 Di dalam folder proyek sudah tersedia **`pixy.exe`** (bisa dibuat ulang kapan saja dengan `npm run build:exe`):
 - **Double-click `pixy.exe`** langsung untuk membuka menu interaktif wizard (menu panah keyboard).
 - Atau jalankan dari command line: `.\pixy.exe <path-gambar> [opsi]`.
+
+### 3. Install dari Source Lokal
+```bash
+npm run install:global
+```
 
 ---
 
