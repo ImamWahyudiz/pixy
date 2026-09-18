@@ -1,6 +1,6 @@
 {
   "name": "@imamwahyudiz/pixy",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "description": "Image compression and enhancement CLI",
   "main": "dist/index.js",
   "repository": {
