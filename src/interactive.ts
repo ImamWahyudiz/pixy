@@ -28,8 +28,8 @@ export async function runInteractiveMode(): Promise<void> {
       message: 'Pilih aksi yang ingin dilakukan:',
       options: [
         { value: 'compress', label: '🗜️  Compress Images', hint: 'WebP untuk gambar statis, kompresi GIF untuk animasi' },
-        { value: 'enhance', label: '✨ Enhance & Upscale (Non-AI)', hint: 'Lanczos3 + Smart Sharpen, format asli tetap terjaga' },
-        { value: 'ai', label: '🤖 AI Super-Resolution', hint: 'Real-ESRGAN on-demand (~20 MB), kualitas tinggi' },
+        { value: 'enhance', label: '✨ Enhance & Upscale (Non-AI)', hint: 'Lanczos3 + Sharpen (Khusus gambar statis: JPG, PNG, WebP)' },
+        { value: 'ai', label: '🤖 AI Super-Resolution', hint: 'Preset Teks & Landscape (Khusus gambar statis)' },
         { value: 'models', label: '⚙️  Pengaturan & Cache Model AI', hint: 'Cek status atau bersihkan model AI di .models/' },
         { value: 'exit', label: '🚪 Keluar' }
       ]
@@ -148,6 +148,10 @@ export async function runInteractiveMode(): Promise<void> {
 
     // --- ACTION: ENHANCE (NON-AI) ---
     if (action === 'enhance') {
+      if (path.extname(inputPath).toLowerCase() === '.gif') {
+        p.log.warn(pc.yellow('Animasi GIF tidak didukung untuk Enhance. Gunakan menu Compress untuk mengoptimalkan GIF.'));
+        continue;
+      }
       const preset = await p.select({
         message: 'Pilih preset peningkatan kualitas:',
         options: [
@@ -226,16 +230,33 @@ export async function runInteractiveMode(): Promise<void> {
 
     // --- ACTION: AI SUPER-RESOLUTION ---
     if (action === 'ai') {
-      const modelChoice = await p.select({
-        message: 'Pilih model AI:',
+      if (path.extname(inputPath).toLowerCase() === '.gif') {
+        p.log.warn(pc.yellow('Animasi GIF tidak didukung untuk AI Super-Resolution. Gunakan menu Compress untuk mengoptimalkan GIF.'));
+        continue;
+      }
+
+      const presetChoice = await p.select({
+        message: 'Pilih jenis gambar untuk AI Super-Resolution:',
         options: [
-          { value: 'realesr-animevideov3', label: '🎬 Animasi & GIF (realesr-animevideov3)', hint: 'Super cepat, optimal untuk animasi' },
-          { value: 'realesrgan-x4plus-anime', label: '🎨 Ilustrasi & Anime (x4plus-anime)', hint: 'Sangat tajam untuk artwork' },
-          { value: 'realesrgan-x4plus', label: '📷 Foto Nyata / Umum (x4plus)', hint: 'Detail maksimal untuk foto manusia & alam' }
+          { 
+            value: 'text', 
+            label: '📝 Teks, Screenshot, UI & Dokumen', 
+            hint: 'realesrgan-x4plus + text sharpening (tulisan tajam & tidak meleleh)' 
+          },
+          { 
+            value: 'landscape', 
+            label: '🏞️ Landscape, Foto Alam & Pemandangan', 
+            hint: 'realesrgan-x4plus (tekstur realistis pohon, langit, & objek nyata)' 
+          },
+          { 
+            value: 'anime', 
+            label: '🎨 Gambar Anime & Ilustrasi 2D', 
+            hint: 'realesrgan-x4plus-anime (garis line-art tebal & tegas)' 
+          }
         ]
       });
 
-      if (p.isCancel(modelChoice)) continue;
+      if (p.isCancel(presetChoice)) continue;
 
       const scaleChoice = await p.select({
         message: 'Pilih skala perbesaran AI:',
@@ -260,12 +281,17 @@ export async function runInteractiveMode(): Promise<void> {
           const files = await fs.promises.readdir(inputPath);
           for (const f of files) {
             const ext = path.extname(f).toLowerCase();
-            if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) {
+            if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
               filesToProcess.push(path.join(inputPath, f));
             }
           }
         } else {
           filesToProcess.push(inputPath);
+        }
+
+        if (filesToProcess.length === 0) {
+          p.log.warn(pc.yellow('Tidak ada gambar statis (.jpg, .png, .webp) yang ditemukan untuk diproses AI. (GIF diabaikan)'));
+          continue;
         }
 
         const success: string[] = [];
@@ -276,7 +302,7 @@ export async function runInteractiveMode(): Promise<void> {
           const outPath = await enhanceWithAi(
             file,
             outputDir,
-            { model: modelChoice as any, scale },
+            { preset: presetChoice as any, scale },
             (statusMsg) => { s.message(statusMsg); }
           );
           success.push(outPath);

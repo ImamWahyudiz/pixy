@@ -5,8 +5,11 @@ import os from 'os';
 import { execFile, execSync } from 'child_process';
 import sharp from 'sharp';
 
+export type AiPreset = 'text' | 'landscape' | 'anime';
+
 export interface AiOptions {
-  model?: 'realesr-animevideov3' | 'realesrgan-x4plus-anime' | 'realesrgan-x4plus';
+  model?: 'realesrgan-x4plus' | 'realesrgan-x4plus-anime' | 'realesr-animevideov3';
+  preset?: AiPreset;
   scale?: 2 | 3 | 4;
 }
 
@@ -105,7 +108,8 @@ function runExecutable(args: string[]): Promise<void> {
 }
 
 /**
- * Enhances a single image or animated GIF using Real-ESRGAN AI Super-Resolution.
+ * Enhances a static image using Real-ESRGAN AI Super-Resolution with dedicated presets for text, landscape, and anime.
+ * Note: GIF animation is not supported in AI mode (use Compress mode instead).
  */
 export async function enhanceWithAi(
   inputFilePath: string,
@@ -119,145 +123,74 @@ export async function enhanceWithAi(
 
   const filename = path.basename(inputFilePath);
   const ext = path.extname(filename).toLowerCase();
-  const isGif = ext === '.gif';
+
+  if (ext === '.gif') {
+    throw new Error('Animasi GIF tidak didukung untuk AI Super-Resolution. Gunakan mode Compress untuk mengoptimalkan GIF.');
+  }
+
   const nameWithoutExt = path.parse(filename).name;
-  const scale = options.scale ?? (isGif ? 2 : 4);
-  const model = options.model ?? (isGif ? 'realesr-animevideov3' : 'realesrgan-x4plus-anime');
+  const scale = options.scale ?? 2;
+
+  // Determine model based on preset or explicit model choice
+  let model: string = 'realesrgan-x4plus';
+  let isTextPreset = false;
+
+  if (options.preset === 'text') {
+    model = 'realesrgan-x4plus';
+    isTextPreset = true;
+  } else if (options.preset === 'landscape') {
+    model = 'realesrgan-x4plus';
+  } else if (options.preset === 'anime') {
+    model = 'realesrgan-x4plus-anime';
+  } else if (options.model) {
+    model = options.model;
+  }
 
   await fsPromises.mkdir(outputDir, { recursive: true });
   const outputFilePath = path.join(outputDir, `${nameWithoutExt}_ai${ext}`);
 
-  if (!isGif) {
-    // Process static image directly
-    if (onProgress) onProgress(`Memproses AI Super-Resolution (${scale}x - ${model})...`);
-    
-    // Use temp png for inference if needed, or direct
-    const tempOut = path.join(outputDir, `${nameWithoutExt}_temp_ai.png`);
-    await runExecutable([
-      '-i', path.resolve(inputFilePath),
-      '-o', path.resolve(tempOut),
-      '-n', model,
-      '-s', scale.toString(),
-    ]);
+  const presetLabel = options.preset === 'text' 
+    ? 'Teks & Dokumen' 
+    : options.preset === 'landscape' 
+      ? 'Landscape & Foto' 
+      : options.preset === 'anime'
+        ? 'Anime 2D'
+        : model;
 
-    // Convert temp output back to original format if not png
-    if (ext === '.png') {
-      if (fs.existsSync(outputFilePath)) await fsPromises.unlink(outputFilePath);
-      await fsPromises.rename(tempOut, outputFilePath);
-    } else if (ext === '.webp') {
-      await sharp(tempOut).webp({ quality: 90 }).toFile(outputFilePath);
+  if (onProgress) onProgress(`Memproses AI Super-Resolution (${scale}x - Preset: ${presetLabel})...`);
+
+  const tempOut = path.join(outputDir, `${nameWithoutExt}_temp_ai.png`);
+  await runExecutable([
+    '-i', path.resolve(inputFilePath),
+    '-o', path.resolve(tempOut),
+    '-n', model,
+    '-s', scale.toString(),
+    '-g', '0'
+  ]);
+
+  // Post-processing pipeline with optional text unsharp mask
+  let pipeline = sharp(tempOut);
+  if (isTextPreset) {
+    // Apply subtle edge sharpening specifically tailored for crisp text rendering
+    pipeline = pipeline.sharpen({ sigma: 0.8, m1: 0.5, m2: 1.5 });
+  }
+
+  if (ext === '.png') {
+    if (isTextPreset) {
+      await pipeline.png({ compressionLevel: 8 }).toFile(outputFilePath);
       await fsPromises.unlink(tempOut);
     } else {
-      // jpg / jpeg
-      await sharp(tempOut).jpeg({ quality: 92, mozjpeg: true }).toFile(outputFilePath);
-      await fsPromises.unlink(tempOut);
+      if (fs.existsSync(outputFilePath)) await fsPromises.unlink(outputFilePath);
+      await fsPromises.rename(tempOut, outputFilePath);
     }
-
-    return outputFilePath;
+  } else if (ext === '.webp') {
+    await pipeline.webp({ quality: 90, effort: 6, smartSubsample: true }).toFile(outputFilePath);
+    await fsPromises.unlink(tempOut);
+  } else {
+    // jpg / jpeg
+    await pipeline.jpeg({ quality: 92, mozjpeg: true, chromaSubsampling: '4:4:4' }).toFile(outputFilePath);
+    await fsPromises.unlink(tempOut);
   }
 
-  // --- Animated GIF Handling ---
-  if (onProgress) onProgress('Mengekstrak frame-frame animasi GIF...');
-  const tempFramesIn = path.join(os.tmpdir(), `pixy_temp_in_${Date.now()}`);
-  const tempFramesOut = path.join(os.tmpdir(), `pixy_temp_out_${Date.now()}`);
-
-  const cleanupTempDirs = () => {
-    if (fs.existsSync(tempFramesIn)) fs.rmSync(tempFramesIn, { recursive: true, force: true });
-    if (fs.existsSync(tempFramesOut)) fs.rmSync(tempFramesOut, { recursive: true, force: true });
-  };
-
-  const exitHandler = () => {
-    cleanupTempDirs();
-    process.exit(1);
-  };
-  
-  process.on('SIGINT', exitHandler);
-  process.on('SIGTERM', exitHandler);
-
-  await fsPromises.mkdir(tempFramesIn, { recursive: true });
-  await fsPromises.mkdir(tempFramesOut, { recursive: true });
-
-  try {
-    const meta = await sharp(inputFilePath, { animated: true }).metadata();
-    const pageCount = meta.pages || 1;
-    const pageHeight = meta.pageHeight || meta.height || 100;
-    const width = meta.width || 100;
-
-    // Extract all frames as individual PNG files
-    for (let page = 0; page < pageCount; page++) {
-      const framePath = path.join(tempFramesIn, `frame_${String(page).padStart(5, '0')}.png`);
-      await sharp(inputFilePath, { page })
-        .png()
-        .toFile(framePath);
-    }
-
-    if (onProgress) onProgress(`Memproses ${pageCount} frame animasi dengan AI (${model})...`);
-    await runExecutable([
-      '-i', path.resolve(tempFramesIn),
-      '-o', path.resolve(tempFramesOut),
-      '-n', model,
-      '-s', scale.toString(),
-      '-g', '0'
-    ]);
-
-    // Read all processed frames
-    const processedFrameFiles = (await fsPromises.readdir(tempFramesOut))
-      .filter(f => f.endsWith('.png'))
-      .sort();
-
-    if (onProgress) onProgress('Menyusun kembali frame animasi GIF...');
-
-    const compositeInputs = [];
-    const newWidth = width * scale;
-    const newPageHeight = pageHeight * scale;
-    const totalHeight = newPageHeight * processedFrameFiles.length;
-
-    if (totalHeight > 32767) {
-      if (onProgress) onProgress(`Peringatan: Ukuran kanvas total sangat besar (${newWidth}x${totalHeight}). Berisiko memakan banyak RAM...`);
-    }
-
-    for (let i = 0; i < processedFrameFiles.length; i++) {
-      compositeInputs.push({
-        input: path.join(tempFramesOut, processedFrameFiles[i]),
-        top: i * newPageHeight,
-        left: 0,
-      });
-    }
-
-    // Combine all frames vertically and encode as animated GIF
-    const joinedBuffer = await sharp({
-      create: {
-        width: newWidth,
-        height: totalHeight,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0 }
-      }
-    })
-    .composite(compositeInputs)
-    .raw()
-    .toBuffer();
-
-    await sharp(joinedBuffer, {
-      raw: {
-        width: newWidth,
-        height: totalHeight,
-        channels: 4,
-        pageHeight: newPageHeight,
-      }
-    })
-    .gif({
-      delay: meta.delay,
-      colours: 256,
-      effort: 7,
-      dither: 1.0,
-    })
-    .toFile(outputFilePath);
-
-    return outputFilePath;
-  } finally {
-    process.off('SIGINT', exitHandler);
-    process.off('SIGTERM', exitHandler);
-    // Clean up temporary frame directories
-    cleanupTempDirs();
-  }
+  return outputFilePath;
 }

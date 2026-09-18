@@ -25,13 +25,19 @@ if (process.argv.slice(2).length === 0) {
     .option('-c, --colors <number>', 'Number of palette colors for GIF compression (2-256)')
     .option('-e, --enhance', 'Enhance and upscale image quality (Non-AI, Lanczos3 + Sharpening)')
     .option('-s, --scale <number>', 'Scale factor for enhancement or AI (1, 2, or 4)', '2')
-    .option('--ai', 'Use AI Super-Resolution (Real-ESRGAN on-demand)')
-    .option('--model <name>', 'AI Model (realesr-animevideov3, realesrgan-x4plus-anime, realesrgan-x4plus)')
+    .option('--ai', 'Use AI Super-Resolution (Real-ESRGAN on-demand, static images only)')
+    .option('--preset <type>', 'AI Preset: text (teks & dokumen tajam), landscape (foto pemandangan/alam), anime (kartun 2D)')
+    .option('--model <name>', 'AI Model name (realesrgan-x4plus, realesrgan-x4plus-anime)')
     .action(async (inputPath, options) => {
       const scale = parseInt(options.scale, 10) as 1 | 2 | 4;
 
       // 1. AI Super-Resolution Mode
       if (options.ai) {
+        if (path.extname(inputPath).toLowerCase() === '.gif') {
+          console.error(pc.yellow('\nWarning: Animasi GIF tidak didukung untuk AI Super-Resolution. Gunakan mode kompresi biasa: pixy <file.gif> -q 80'));
+          process.exit(1);
+        }
+
         console.log(pc.cyan(`\n[AI] Processing with Real-ESRGAN Super-Resolution (${scale}x)...`));
         try {
           const outputDir = path.join(process.cwd(), 'output', 'ai');
@@ -42,7 +48,7 @@ if (process.argv.slice(2).length === 0) {
             const list = await fs.promises.readdir(inputPath);
             for (const f of list) {
               const ext = path.extname(f).toLowerCase();
-              if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) {
+              if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
                 files.push(path.join(inputPath, f));
               }
             }
@@ -50,12 +56,21 @@ if (process.argv.slice(2).length === 0) {
             files.push(inputPath);
           }
 
+          if (files.length === 0) {
+            console.log(pc.yellow('\nTidak ada gambar statis (.jpg, .png, .webp) yang ditemukan untuk diproses dengan AI. (GIF diabaikan)'));
+            return;
+          }
+
           for (const file of files) {
             console.log(pc.blue(`Processing: ${file}`));
             const out = await enhanceWithAi(
               file,
               outputDir,
-              { scale: (scale === 1 ? 2 : scale) as 2 | 4, model: options.model },
+              { 
+                scale: (scale === 1 ? 2 : scale) as 2 | 4, 
+                model: options.model,
+                preset: options.preset as any
+              },
               (msg) => console.log(pc.dim(` > ${msg}`))
             );
             console.log(pc.green(` ✓ Saved: ${out}`));
@@ -70,6 +85,11 @@ if (process.argv.slice(2).length === 0) {
 
       // 2. Non-AI Enhance Mode
       if (options.enhance) {
+        if (path.extname(inputPath).toLowerCase() === '.gif') {
+          console.error(pc.yellow('\nWarning: Animasi GIF tidak didukung untuk Enhance. Gunakan mode kompresi biasa: pixy <file.gif> -q 80'));
+          process.exit(1);
+        }
+
         console.log(pc.cyan(`\n[Enhance] Upscaling and sharpening (${scale}x, Lanczos3, format preserved)...`));
         try {
           const enhanceOpts: EnhanceOptions = {

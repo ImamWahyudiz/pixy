@@ -10,7 +10,7 @@ export interface EnhanceOptions {
   quality?: number;
 }
 
-const SUPPORTED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.jfif', '.heic', '.webp', '.gif']);
+const SUPPORTED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.jfif', '.heic', '.webp']);
 
 export function isSupportedImage(filename: string): boolean {
   const ext = path.extname(filename).toLowerCase();
@@ -18,8 +18,9 @@ export function isSupportedImage(filename: string): boolean {
 }
 
 /**
- * Enhances a single image (Non-AI) using Sharp with Lanczos3 super-sampling,
+ * Enhances a single static image (Non-AI) using Sharp with Lanczos3 super-sampling,
  * smart sharpening, contrast normalization, and optional format preservation.
+ * Note: GIF animation is not supported in Enhance mode (use Compress mode instead).
  */
 export async function enhanceImage(
   inputFilePath: string,
@@ -27,12 +28,16 @@ export async function enhanceImage(
   options: EnhanceOptions = {}
 ): Promise<string | null> {
   const filename = path.basename(inputFilePath);
+  const ext = path.extname(filename).toLowerCase();
+
+  if (ext === '.gif') {
+    throw new Error('Animasi GIF tidak didukung untuk Enhance. Gunakan mode Compress untuk mengoptimalkan GIF.');
+  }
+
   if (!isSupportedImage(filename)) {
     return null;
   }
 
-  const ext = path.extname(filename).toLowerCase();
-  const isGif = ext === '.gif';
   const scale = options.scale ?? 2;
   const sharpenLevel = options.sharpen ?? 'normal';
   const shouldNormalise = options.normalise ?? true;
@@ -48,8 +53,7 @@ export async function enhanceImage(
   const nameWithoutExt = path.parse(filename).name;
   const outputFilePath = path.join(outputDir, `${nameWithoutExt}_enhanced${outputExt}`);
 
-  // Load image with animated support if it's GIF
-  let pipeline = sharp(inputFilePath, isGif ? { animated: true } : {});
+  let pipeline = sharp(inputFilePath);
   const meta = await pipeline.metadata();
 
   // 1. Resizing with high-quality Lanczos3 kernel
@@ -74,16 +78,8 @@ export async function enhanceImage(
     pipeline = pipeline.normalise();
   }
 
-  // 4. Output format handling
-  if (outputExt === '.gif') {
-    await pipeline
-      .gif({
-        colours: 256,
-        effort: 7,
-        dither: 1.0,
-      })
-      .toFile(outputFilePath);
-  } else if (outputExt === '.png') {
+  // 4. Output format handling (static images)
+  if (outputExt === '.png') {
     await pipeline
       .png({ compressionLevel: 8, effort: 8 })
       .toFile(outputFilePath);
