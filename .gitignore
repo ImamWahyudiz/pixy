@@ -1,6 +1,8 @@
 node_modules/
 dist/
 output/
+.models/
+.cache/
 *.log
 .env
 .DS_Store
