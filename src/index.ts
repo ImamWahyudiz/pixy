@@ -7,6 +7,7 @@ import { processPath } from './converter';
 import { processEnhancePath, EnhanceOptions } from './enhancer';
 import { enhanceWithAi, AiOptions } from './ai-engine';
 import { runInteractiveMode } from './interactive';
+import { getOutputDirectory } from './output';
 
 // If run with no arguments, launch interactive wizard mode
 if (process.argv.slice(2).length === 0) {
@@ -23,11 +24,13 @@ if (process.argv.slice(2).length === 0) {
     .argument('<inputPath>', 'Path to a single image file or a directory containing images.')
     .option('-q, --quality <number>', 'Quality of compression (1-100)', '80')
     .option('-c, --colors <number>', 'Number of palette colors for GIF compression (2-256)')
+    .option('-f, --format <type>', 'Output format: webp (default) or original', 'webp')
     .option('-e, --enhance', 'Enhance and upscale image quality (Non-AI, Lanczos3 + Sharpening)')
     .option('-s, --scale <number>', 'Scale factor for enhancement or AI (1, 2, or 4)', '2')
     .option('--ai', 'Use AI Super-Resolution (Real-ESRGAN on-demand, static images only)')
     .option('--preset <type>', 'AI Preset: text (teks & dokumen tajam), landscape (foto pemandangan/alam), anime (kartun 2D)')
     .option('--model <name>', 'AI Model name (realesrgan-x4plus, realesrgan-x4plus-anime)')
+    .option('-o, --output <folder>', 'Folder akar untuk hasil (default: folder sumber)')
     .action(async (inputPath, options) => {
       const scale = parseInt(options.scale, 10) as 1 | 2 | 4;
 
@@ -40,8 +43,8 @@ if (process.argv.slice(2).length === 0) {
 
         console.log(pc.cyan(`\n[AI] Processing with Real-ESRGAN Super-Resolution (${scale}x)...`));
         try {
-          const outputDir = path.join(process.cwd(), 'output', 'ai');
           const stats = await fs.promises.stat(inputPath);
+          const outputDir = getOutputDirectory(inputPath, stats.isDirectory(), 'ai', options.output);
           const files: string[] = [];
 
           if (stats.isDirectory()) {
@@ -100,7 +103,7 @@ if (process.argv.slice(2).length === 0) {
           };
           const result = await processEnhancePath(inputPath, enhanceOpts, (file, idx, total) => {
             console.log(pc.dim(` [${idx}/${total}] Enhancing ${file}...`));
-          });
+          }, options.output);
 
           if (result.success.length > 0) {
             console.log(pc.green(`\nSuccessfully enhanced ${result.success.length} file(s):`));
@@ -133,10 +136,15 @@ if (process.argv.slice(2).length === 0) {
         }
       }
 
+      if (!['webp', 'original'].includes(options.format)) {
+        console.error(pc.red('Error: Format must be either webp or original.'));
+        process.exit(1);
+      }
+
       console.log(pc.blue(`Processing: ${inputPath} (Quality: ${quality}${colors ? `, Colors: ${colors}` : ''})`));
 
       try {
-        const result = await processPath(inputPath, { quality, colors });
+        const result = await processPath(inputPath, { quality, colors, format: options.format }, options.output);
 
         if (result.success.length > 0) {
           console.log(pc.green(`\nSuccessfully converted ${result.success.length} file(s):`));

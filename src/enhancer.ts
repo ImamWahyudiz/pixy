@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import sharp from 'sharp';
+import { getAvailableOutputPath, getOutputDirectory } from './output';
 
 export interface EnhanceOptions {
   scale?: 1 | 2 | 4;
@@ -51,7 +52,7 @@ export async function enhanceImage(
   }
 
   const nameWithoutExt = path.parse(filename).name;
-  const outputFilePath = path.join(outputDir, `${nameWithoutExt}_enhanced${outputExt}`);
+  const outputFilePath = await getAvailableOutputPath(outputDir, `${nameWithoutExt}_enhanced${outputExt}`);
 
   let pipeline = sharp(inputFilePath);
   const meta = await pipeline.metadata();
@@ -109,7 +110,7 @@ export async function processEnhancePath(
   const stats = await fs.stat(inputPath);
   const isDirectory = stats.isDirectory();
 
-  const outputDir = customOutputDir || path.join(process.cwd(), 'output', 'enhance');
+  const outputDir = getOutputDirectory(inputPath, isDirectory, 'enhance', customOutputDir);
   await fs.mkdir(outputDir, { recursive: true });
 
   const result = {

@@ -49,13 +49,16 @@ Menu interaktif akan muncul, memungkinkan Anda memilih aksi (Kompresi, Enhance, 
 # Kompres gambar statis menjadi WebP (kualitas 80):
 pixy gambar.jpg -q 80
 
+# Kompres sambil mempertahankan format asli JPG, PNG, atau WebP:
+pixy gambar.png -q 80 --format original
+
 # Kompres animasi GIF (framerate & delay utuh, ukuran hemat hingga 60%+):
 pixy animasi.gif -q 80
 
 # Kompres seluruh isi folder:
 pixy path/ke/folder -q 75
 ```
-*Output tersimpan di: `output/compress/`*
+*Secara default output tersimpan di: `<folder-sumber>/compress/`. Gunakan `--output <folder>` untuk memilih folder akar lain.*
 
 ### 3. Mode Peningkatan Kualitas Non-AI (Lanczos3 + Sharpening)
 *Khusus gambar statis (JPG, PNG, WebP) untuk mempertahankan ketajaman garis dan teks tanpa efek lilin/meleleh:*
@@ -66,7 +69,7 @@ pixy foto.png -e -s 2
 # Perbesar resolusi 4x maksimal:
 pixy foto.png -e -s 4
 ```
-*Output tersimpan di: `output/enhance/`*
+*Secara default output tersimpan di: `<folder-sumber>/enhance/`. Gunakan `--output <folder>` untuk memilih folder akar lain.*
 
 ### 4. Mode AI Super-Resolution (Real-ESRGAN Vulkan)
 *Khusus gambar statis (JPG, PNG, WebP) dengan rekonstruksi tekstur berbasis deep learning:*
@@ -80,7 +83,7 @@ pixy pemandangan.jpg --ai --preset landscape -s 2
 # Preset Anime & Ilustrasi 2D:
 pixy artwork.png --ai --preset anime -s 2
 ```
-*Output tersimpan di: `output/ai/`*
+*Secara default output tersimpan di: `<folder-sumber>/enhance/ai/`. Gunakan `--output <folder>` untuk memilih folder akar lain.*
 
 ---
 
@@ -98,4 +101,3 @@ npm run build:exe
 ## 📄 Lisensi
 
 Didistribusikan di bawah Lisensi **MIT**. Silakan cek file [`LICENSE`](LICENSE) untuk informasi lebih lengkap. Bebas digunakan untuk kebutuhan personal maupun komersial.
-

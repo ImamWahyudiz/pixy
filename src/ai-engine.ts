@@ -4,6 +4,7 @@ import path from 'path';
 import os from 'os';
 import { execFile, execSync } from 'child_process';
 import sharp from 'sharp';
+import { getAvailableOutputPath } from './output';
 
 export type AiPreset = 'text' | 'landscape' | 'anime';
 
@@ -147,7 +148,7 @@ export async function enhanceWithAi(
   }
 
   await fsPromises.mkdir(outputDir, { recursive: true });
-  const outputFilePath = path.join(outputDir, `${nameWithoutExt}_ai${ext}`);
+  const outputFilePath = await getAvailableOutputPath(outputDir, `${nameWithoutExt}_ai${ext}`);
 
   const presetLabel = options.preset === 'text' 
     ? 'Teks & Dokumen' 
@@ -159,7 +160,7 @@ export async function enhanceWithAi(
 
   if (onProgress) onProgress(`Memproses AI Super-Resolution (${scale}x - Preset: ${presetLabel})...`);
 
-  const tempOut = path.join(outputDir, `${nameWithoutExt}_temp_ai.png`);
+  const tempOut = path.join(outputDir, `.${path.parse(outputFilePath).name}_temp_ai.png`);
   await runExecutable([
     '-i', path.resolve(inputFilePath),
     '-o', path.resolve(tempOut),
@@ -180,7 +181,6 @@ export async function enhanceWithAi(
       await pipeline.png({ compressionLevel: 8 }).toFile(outputFilePath);
       await fsPromises.unlink(tempOut);
     } else {
-      if (fs.existsSync(outputFilePath)) await fsPromises.unlink(outputFilePath);
       await fsPromises.rename(tempOut, outputFilePath);
     }
   } else if (ext === '.webp') {

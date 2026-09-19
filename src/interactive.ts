@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { processPath } from './converter';
 import { processEnhancePath, EnhanceOptions } from './enhancer';
+import { getOutputDirectory } from './output';
 import {
   enhanceWithAi,
   getAiModelStatus,
@@ -19,6 +20,23 @@ function cleanPath(raw: string): string {
   return raw.trim().replace(/^['"]|['"]$/g, '');
 }
 
+async function chooseOutputRoot(): Promise<string | undefined> {
+  const destination = await p.select({
+    message: 'Pilih lokasi penyimpanan hasil:',
+    options: [
+      { value: 'source', label: 'Folder sumber (Rekomendasi)' },
+      { value: 'custom', label: 'Folder lain...' }
+    ]
+  });
+  if (p.isCancel(destination) || destination === 'source') return undefined;
+
+  const customPath = await p.text({
+    message: 'Masukkan atau drag & drop folder tujuan:',
+    validate: (value) => !value?.trim() ? 'Path folder tidak boleh kosong!' : undefined
+  });
+  return p.isCancel(customPath) ? undefined : cleanPath(customPath);
+}
+
 export async function runInteractiveMode(): Promise<void> {
   console.clear();
   p.intro(`${pc.bgCyan(pc.black(' PIXY '))} ${pc.bold('Modern Image Compression & Enhancement Tool')}`);
@@ -27,16 +45,16 @@ export async function runInteractiveMode(): Promise<void> {
     const action = await p.select({
       message: 'Pilih aksi yang ingin dilakukan:',
       options: [
-        { value: 'compress', label: '🗜️  Compress Images', hint: 'WebP untuk gambar statis, kompresi GIF untuk animasi' },
-        { value: 'enhance', label: '✨ Enhance & Upscale (Non-AI)', hint: 'Lanczos3 + Sharpen (Khusus gambar statis: JPG, PNG, WebP)' },
-        { value: 'ai', label: '🤖 AI Super-Resolution', hint: 'Preset Teks & Landscape (Khusus gambar statis)' },
-        { value: 'models', label: '⚙️  Pengaturan & Cache Model AI', hint: 'Cek status atau bersihkan model AI di .models/' },
-        { value: 'exit', label: '🚪 Keluar' }
+        { value: 'compress', label: 'Compress Images', hint: 'WebP atau format asli untuk gambar statis, kompresi GIF untuk animasi' },
+        { value: 'enhance', label: 'Enhance & Upscale (Non-AI)', hint: 'Lanczos3 + Sharpen (Khusus gambar statis: JPG, PNG, WebP)' },
+        { value: 'ai', label: 'AI Super-Resolution', hint: 'Preset Teks & Landscape (Khusus gambar statis)' },
+        { value: 'models', label: 'Pengaturan & Cache Model AI', hint: 'Cek status atau bersihkan model AI di .models/' },
+        { value: 'exit', label: 'Keluar' }
       ]
     });
 
     if (p.isCancel(action) || action === 'exit') {
-      p.outro(pc.yellow('Sampai jumpa! 👋'));
+      p.outro(pc.yellow('Sampai jumpa!'));
       process.exit(0);
     }
 
@@ -94,6 +112,7 @@ export async function runInteractiveMode(): Promise<void> {
 
     if (p.isCancel(inputPathRaw)) continue;
     const inputPath = cleanPath(inputPathRaw);
+    const outputRoot = await chooseOutputRoot();
 
     // --- ACTION: COMPRESS ---
     if (action === 'compress') {
@@ -124,15 +143,24 @@ export async function runInteractiveMode(): Promise<void> {
         quality = parseInt(customQ, 10);
       }
 
+      const formatChoice = await p.select({
+        message: 'Pilih format hasil:',
+        options: [
+          { value: 'webp', label: 'WebP (Rekomendasi)', hint: 'Ukuran file paling efisien' },
+          { value: 'original', label: 'Format asli', hint: 'JPG, PNG, atau WebP tetap memakai format semula' }
+        ]
+      });
+      if (p.isCancel(formatChoice)) continue;
+
       const s = p.spinner();
       s.start('Memproses kompresi gambar...');
 
       try {
-        const res = await processPath(inputPath, { quality });
+        const res = await processPath(inputPath, { quality, format: formatChoice as 'webp' | 'original' }, outputRoot);
         s.stop(`Selesai! Berhasil mengompres ${res.success.length} file.`);
 
         if (res.success.length > 0) {
-          p.log.success(pc.green(`File tersimpan di folder ${pc.bold('output/compress/')}`));
+          p.log.success(pc.green(`File tersimpan di ${pc.bold(path.dirname(res.success[0]))}`));
           res.success.slice(0, 5).forEach(f => p.log.info(` - ${path.basename(f)}`));
           if (res.success.length > 5) p.log.info(` ... dan ${res.success.length - 5} file lainnya`);
         }
@@ -155,10 +183,10 @@ export async function runInteractiveMode(): Promise<void> {
       const preset = await p.select({
         message: 'Pilih preset peningkatan kualitas:',
         options: [
-          { value: 'balanced', label: '⚡ Balanced (2x Upscale + Normal Sharpen)', hint: 'Paling ideal untuk foto & animasi' },
-          { value: 'max', label: '🔍 Max Detail (4x Upscale + Strong Sharpen)', hint: 'Resolusi tinggi maksimal' },
-          { value: 'subtle', label: '✨ Subtle Enhance (1x / Resolusi Tetap + Sharpen)', hint: 'Menajamkan tanpa ubah ukuran' },
-          { value: 'custom', label: '⚙️  Kustom Parameter...' }
+          { value: 'balanced', label: 'Balanced (2x Upscale + Normal Sharpen)', hint: 'Paling ideal untuk foto & animasi' },
+          { value: 'max', label: 'Max Detail (4x Upscale + Strong Sharpen)', hint: 'Resolusi tinggi maksimal' },
+          { value: 'subtle', label: 'Subtle Enhance (1x / Resolusi Tetap + Sharpen)', hint: 'Menajamkan tanpa ubah ukuran' },
+          { value: 'custom', label: 'Kustom Parameter...' }
         ]
       });
 
@@ -209,12 +237,12 @@ export async function runInteractiveMode(): Promise<void> {
       try {
         const res = await processEnhancePath(inputPath, enhanceOptions, (file, idx, total) => {
           s.message(`[${idx}/${total}] Memproses: ${file}...`);
-        });
+        }, outputRoot);
 
         s.stop(`Selesai! Berhasil meningkatkan kualitas ${res.success.length} file.`);
 
         if (res.success.length > 0) {
-          p.log.success(pc.green(`File tersimpan di folder ${pc.bold('output/enhance/')}`));
+          p.log.success(pc.green(`File tersimpan di ${pc.bold(path.dirname(res.success[0]))}`));
           res.success.slice(0, 5).forEach(f => p.log.info(` - ${path.basename(f)}`));
           if (res.success.length > 5) p.log.info(` ... dan ${res.success.length - 5} file lainnya`);
         }
@@ -240,17 +268,17 @@ export async function runInteractiveMode(): Promise<void> {
         options: [
           { 
             value: 'text', 
-            label: '📝 Teks, Screenshot, UI & Dokumen', 
+            label: 'Teks, Screenshot, UI & Dokumen',
             hint: 'realesrgan-x4plus + text sharpening (tulisan tajam & tidak meleleh)' 
           },
           { 
             value: 'landscape', 
-            label: '🏞️ Landscape, Foto Alam & Pemandangan', 
+            label: 'Landscape, Foto Alam & Pemandangan',
             hint: 'realesrgan-x4plus (tekstur realistis pohon, langit, & objek nyata)' 
           },
           { 
             value: 'anime', 
-            label: '🎨 Gambar Anime & Ilustrasi 2D', 
+            label: 'Gambar Anime & Ilustrasi 2D',
             hint: 'realesrgan-x4plus-anime (garis line-art tebal & tegas)' 
           }
         ]
@@ -273,8 +301,8 @@ export async function runInteractiveMode(): Promise<void> {
       s.start('Mempersiapkan AI Super-Resolution...');
 
       try {
-        const outputDir = path.join(process.cwd(), 'output', 'ai');
         const stats = await fs.promises.stat(inputPath);
+        const outputDir = getOutputDirectory(inputPath, stats.isDirectory(), 'ai', outputRoot);
         const filesToProcess: string[] = [];
 
         if (stats.isDirectory()) {
@@ -309,7 +337,7 @@ export async function runInteractiveMode(): Promise<void> {
         }
 
         s.stop(`Selesai! Berhasil memproses ${success.length} file dengan AI.`);
-        p.log.success(pc.green(`File tersimpan di folder ${pc.bold('output/ai/')}`));
+        p.log.success(pc.green(`File tersimpan di ${pc.bold(outputDir)}`));
         success.forEach(f => p.log.info(` - ${path.basename(f)}`));
       } catch (err: any) {
         s.stop(pc.red('Gagal: ' + err.message));

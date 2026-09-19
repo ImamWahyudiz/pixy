@@ -1,10 +1,12 @@
 import fs from 'fs/promises';
 import path from 'path';
 import sharp from 'sharp';
+import { getAvailableOutputPath, getOutputDirectory } from './output';
 
 export interface ConverterOptions {
   quality: number;
   colors?: number;
+  format?: 'webp' | 'original';
 }
 
 const SUPPORTED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.jfif', '.heic', '.webp', '.gif']);
@@ -38,10 +40,11 @@ export async function convertImage(
 
   const ext = path.extname(filename).toLowerCase();
   const isGif = ext === '.gif';
+  const preserveOriginal = options.format === 'original' && ['.jpg', '.jpeg', '.png', '.webp'].includes(ext);
 
   const nameWithoutExt = path.parse(filename).name;
-  const outputExtension = isGif ? '.gif' : '.webp';
-  const outputFilePath = path.join(outputDir, `${nameWithoutExt}${outputExtension}`);
+  const outputExtension = isGif ? '.gif' : preserveOriginal ? ext : '.webp';
+  const outputFilePath = await getAvailableOutputPath(outputDir, `${nameWithoutExt}${outputExtension}`);
 
   if (isGif) {
     const colours = options.colors !== undefined
@@ -58,6 +61,14 @@ export async function convertImage(
         interFrameMaxError,
         dither: 1.0,
       })
+      .toFile(outputFilePath);
+  } else if (outputExtension === '.png') {
+    await sharp(inputFilePath)
+      .png({ compressionLevel: 8, effort: 8 })
+      .toFile(outputFilePath);
+  } else if (outputExtension === '.jpg' || outputExtension === '.jpeg') {
+    await sharp(inputFilePath)
+      .jpeg({ quality: options.quality, mozjpeg: true })
       .toFile(outputFilePath);
   } else {
     await sharp(inputFilePath)
@@ -87,8 +98,7 @@ export async function processPath(
   const stats = await fs.stat(inputPath);
   const isDirectory = stats.isDirectory();
   
-  // Create output directory 'output/compress' in the current working directory
-  const outputDir = customOutputDir || path.join(process.cwd(), 'output', 'compress');
+  const outputDir = getOutputDirectory(inputPath, isDirectory, 'compress', customOutputDir);
   await fs.mkdir(outputDir, { recursive: true });
 
   const result = {
